@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pickleball Recovery Coach</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="src/styles.css">
+</head>
+<body>
+<div class="app" id="app">
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <span class="brand-name">Recovery Coach</span>
+      <span class="brand-tag">Singles</span>
+    </div>
+    <nav class="steps" id="steps" aria-label="Rally steps">
+      <button class="step" data-step="1"><span class="step-num">1</span><span class="step-label">Incoming</span></button>
+      <button class="step" data-step="2"><span class="step-num">2</span><span class="step-label">Your shot</span></button>
+      <button class="step" data-step="3"><span class="step-num">3</span><span class="step-label">Their options</span></button>
+      <button class="step" data-step="4"><span class="step-num">4</span><span class="step-label">Your move</span></button>
+    </nav>
+    <div class="top-actions">
+      <button class="btn btn-play" id="play" aria-label="Play the rally in slow motion"><span class="play-icon" aria-hidden="true"></span><span>Play</span></button>
+      <div class="seg" role="group" aria-label="Mode" id="mode">
+        <button data-mode="lesson" aria-pressed="true">Lesson</button>
+        <button data-mode="predict" aria-pressed="false">Predict</button>
+      </div>
+    </div>
+  </header>
+
+  <aside class="panel" id="panel">
+    <section class="group">
+      <label class="group-title" for="example">Situation</label>
+      <select id="example" class="select">
+        <option value="">Load an example…</option>
+      </select>
+    </section>
+
+    <section class="group">
+      <h2 class="group-title">Your shot</h2>
+      <div class="shots" id="shots"></div>
+      <p class="shot-blurb" id="shot-blurb"></p>
+    </section>
+
+    <section class="group">
+      <h2 class="group-title">Players</h2>
+      <div class="rating">
+        <div class="rating-row"><label for="r-student"><span class="dot dot-you"></span>Student skill</label><output id="o-student">4.0</output></div>
+        <input type="range" id="r-student" min="2.5" max="7.5" step="0.1" value="4.0">
+      </div>
+      <div class="rating">
+        <div class="rating-row">
+          <label for="r-move">Movement</label>
+          <output id="o-move">4.0</output>
+        </div>
+        <input type="range" id="r-move" min="2.5" max="7.5" step="0.1" value="4.0">
+        <label class="check"><input type="checkbox" id="link-move" checked> Same as skill</label>
+      </div>
+      <div class="rating">
+        <div class="rating-row"><label for="r-opp"><span class="dot dot-opp"></span>Opponent skill</label><output id="o-opp">4.0</output></div>
+        <input type="range" id="r-opp" min="2.5" max="7.5" step="0.1" value="4.0">
+      </div>
+    </section>
+
+    <section class="group">
+      <h2 class="group-title">Rules</h2>
+      <div class="seg seg-wide" role="group" aria-label="Rally situation" id="rule">
+        <button data-rule="rally" aria-pressed="true">Rally</button>
+        <button data-rule="return" aria-pressed="false">Return of serve</button>
+      </div>
+      <p class="hint" id="rule-hint"></p>
+      <div class="field-label">Incoming ball</div>
+      <div class="seg seg-wide" role="group" aria-label="Incoming ball" id="incoming">
+        <button data-incoming="auto" aria-pressed="true">Auto</button>
+        <button data-incoming="volley" aria-pressed="false">Volley</button>
+        <button data-incoming="bounce" aria-pressed="false">Bounced</button>
+      </div>
+    </section>
+
+    <section class="group">
+      <h2 class="group-title">Show</h2>
+      <label class="check"><input type="checkbox" id="l-heat" checked> Recovery heat map</label>
+      <label class="check"><input type="checkbox" id="l-fan" checked> Their reply paths</label>
+      <label class="check"><input type="checkbox" id="l-zones" checked> Where replies land</label>
+    </section>
+  </aside>
+
+  <main class="stage" id="stage">
+    <div class="court-wrap" id="court-wrap">
+      <canvas id="court" aria-label="Top-down court. Drag the teal dot (you), the coral dot (opponent) and the yellow target."></canvas>
+      <div class="badge" id="busy" hidden>Calculating…</div>
+      <div class="banner" id="banner" hidden></div>
+    </div>
+    <div class="side-wrap">
+      <canvas id="side" aria-label="Side view. Drag the teal handle to set contact height and the yellow handle to set net clearance."></canvas>
+    </div>
+  </main>
+
+  <aside class="ambition" id="ambition-col">
+    <div class="amb-end amb-top">Attack</div>
+    <div class="amb-track" id="amb" role="slider" tabindex="0" aria-label="Ambition: from get it back to attack" aria-valuemin="0" aria-valuemax="10" aria-valuenow="5">
+      <div class="amb-over" id="amb-over"></div>
+      <div class="amb-fill" id="amb-fill"></div>
+      <div class="amb-ceiling" id="amb-ceiling"><span>Your ceiling</span></div>
+      <div class="amb-thumb" id="amb-thumb"><span id="amb-val">5</span></div>
+    </div>
+    <div class="amb-end amb-bottom">Get it back</div>
+  </aside>
+
+  <footer class="summary" id="summary">
+    <div class="stats" id="stats">
+      <div class="stat"><span class="stat-k">Time to move</span><span class="stat-v" id="s-time">–</span></div>
+      <div class="stat"><span class="stat-k">Distance</span><span class="stat-v" id="s-dist">–</span></div>
+      <div class="stat"><span class="stat-k">Steps</span><span class="stat-v" id="s-steps">–</span></div>
+      <div class="stat"><span class="stat-k">Replies returned</span><span class="stat-v" id="s-ret">–</span></div>
+      <div class="pace" id="pace" aria-label="Pace needed">
+        <span class="stat-k">Pace needed</span>
+        <div class="pace-bar" id="pace-bar">
+          <span data-key="walk">Walk</span><span data-key="jog">Jog</span><span data-key="shuffle">Shuffle hard</span><span data-key="sprint">Sprint</span><span data-key="impossible">Not possible</span>
+        </div>
+      </div>
+    </div>
+    <div class="note" id="note" aria-live="polite"></div>
+    <div class="predict" id="predict" hidden>
+      <p id="predict-text"></p>
+      <div class="predict-actions">
+        <button class="btn btn-primary" id="reveal" disabled>Reveal the answer</button>
+        <button class="btn" id="retry" hidden>Try again</button>
+      </div>
+    </div>
+  </footer>
+</div>
+<script type="module" src="src/main.js"></script>
+</body>
+</html>
