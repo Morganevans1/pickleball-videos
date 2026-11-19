@@ -127,3 +127,55 @@ test('directions are from the student’s point of view', () => {
   assert.equal(describeDirection(0, 5), '5 ft forward');
   assert.equal(describeDirection(2, -4), '4 ft back and 2 ft to your right');
 });
+
+// ---------------------------------------------------------------- doubles
+
+import { teamPlan, replyOwners } from '../src/engine/team.js';
+
+const dinkState = (target, extra = {}) => ({
+  ...structuredClone(DEFAULT_STATE), format: 'doubles',
+  student: { x: 4, y: -7.6, z: 1.0 }, partner: { x: -4, y: -7.6, z: 1.0 },
+  opponent: { x: -4, y: 7.8 }, opponent2: { x: 4, y: 7.8 },
+  shotId: 'dink', target, clearance: 0.5, ...extra,
+});
+const runDoubles = (st) => analyse(st, solveStudentShot(st, profilesFor(st)), profilesFor(st));
+
+test('doubles: partners keep their own sides', () => {
+  const an = runDoubles(dinkState({ x: -4, y: 4.5 }));
+  assert.equal(an.outcome, 'rally');
+  for (let L = 0; L < LEVELS; L += 5) {
+    const { plans } = teamPlan(an.rec, L);
+    assert.ok(plans[0].target.x > 0 && plans[1].target.x < 0, `level ${L}`);
+  }
+});
+
+test('doubles: the team shifts together towards a wide ball', () => {
+  const sumX = (an) => { const { plans } = teamPlan(an.rec, 5); return plans[0].target.x + plans[1].target.x; };
+  const right = runDoubles(dinkState({ x: 8, y: 4.5 }));
+  const left = runDoubles(dinkState({ x: -8, y: 4.5 }));
+  assert.ok(sumX(right) > sumX(left), `right ${sumX(right)}, left ${sumX(left)}`);
+});
+
+test('doubles: both players share the work and little goes uncovered', () => {
+  const an = runDoubles(dinkState({ x: -4, y: 4.5 }));
+  const { plans } = teamPlan(an.rec, 5);
+  const own = replyOwners(an.rec, plans[0].target, plans[1].target);
+  const count = (k) => own.filter((o) => o === k).length;
+  assert.ok(count(0) > own.length * 0.2 && count(1) > own.length * 0.2, `you ${count(0)}, partner ${count(1)}`);
+  assert.ok(count(-1) < own.length * 0.1, `uncovered ${count(-1)}`);
+});
+
+test('doubles: the partner can be the hitter', () => {
+  const st = dinkState({ x: 4, y: 4.5 }, { hitter: 'partner' });
+  const shot = solveStudentShot(st, profilesFor(st));
+  assert.ok(shot.ok);
+  assert.equal(shot.path.x[0], st.partner.x);
+  assert.equal(runDoubles(st).outcome, 'rally');
+});
+
+test('doubles: either opponent can play the ball', () => {
+  const toLeft = runDoubles(dinkState({ x: -6, y: 4.5 }));
+  const toRight = runDoubles(dinkState({ x: 6, y: 4.5 }));
+  assert.equal(toLeft.main.who, 0);   // opponent A stands at x = -4
+  assert.equal(toRight.main.who, 1);  // opponent B stands at x = +4
+});

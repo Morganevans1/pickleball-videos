@@ -1,6 +1,6 @@
 // Bundles the app into one self-contained HTML file (no server needed, works
 // offline on a tablet). No dependencies: it relies on the source using
-// single-line `import { … } from './x.js';` statements and `export` prefixes.
+// `import { … } from './x.js';` statements (one or several lines) and `export` prefixes.
 //
 //   node tools/build.mjs                  -> dist/recovery-coach.html
 //   node tools/build.mjs --artifact out.html   also writes a body-only page
@@ -18,7 +18,9 @@ const order = [];
 
 function load(file) {
   if (modules.has(file)) return modules.get(file);
-  const src = readFileSync(file, 'utf8');
+  // Collapse multi-line `import { a, b } from '…';` statements onto one line.
+  const src = readFileSync(file, 'utf8').replace(/^import\s*\{([^}]*)\}\s*from\s*(['"][^'"]+['"]);?/gm,
+    (_, names, from) => `import { ${names.replace(/\s+/g, ' ').trim()} } from ${from};`);
   const id = `__m${modules.size}`;
   const mod = { id, file, deps: [], code: '' };
   modules.set(file, mod);

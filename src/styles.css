@@ -21,6 +21,8 @@
   --ball: #e2f23a;
   --you: #3fd8d0;
   --opp: #ff8a5b;
+  --partner: #e8f4f8;        /* partner: pale, ringed in team teal */
+  --overlay: rgba(8, 18, 26, 0.55);
   --on-court: #f4f8fb;
   --side-bg: #f7fafc;
   --side-ground: #9fb3c1;
@@ -220,6 +222,97 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 .predict p { margin: 0; flex: 1 1 280px; font-size: 16px; }
 .predict-actions { display: flex; gap: 8px; }
 
+/* Keep the top bar on one line at tablet widths */
+@media (max-width: 1320px) and (min-width: 901px) {
+  .topbar { gap: 10px; }
+  .step { padding: 6px 8px; gap: 6px; font-size: 15px; }
+  .step + .step::before { display: none; }
+  .brand-name { font-size: 20px; }
+}
+@media (max-width: 1100px) and (min-width: 901px) {
+  .step-label { display: none; }
+  .step[aria-current="step"] .step-label { display: inline; }
+}
+
+/* Format switch sits in the brand row */
+.seg-format button { min-height: 34px; font: 700 13px/1 var(--font-display); letter-spacing: .08em; text-transform: uppercase; padding: 0 12px; }
+.brand { align-items: center; flex-wrap: wrap; }
+.app:not([data-format="doubles"]) .doubles-only { display: none !important; }
+.dot-partner { background: var(--partner); box-shadow: 0 0 0 2px var(--accent); }
+.seg-focus { align-self: flex-end; }
+.seg-focus button { min-height: 34px; }
+
+/* Help */
+.help-wrap { position: relative; }
+.btn-help { width: 44px; padding: 0; justify-content: center; font: 700 20px/1 var(--font-display); }
+.btn-help.nudge { box-shadow: 0 0 0 3px var(--ball); }
+.help-menu {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 30; min-width: 240px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+  box-shadow: 0 10px 30px rgba(0,0,0,.2); padding: 6px; display: flex; flex-direction: column;
+}
+.help-menu button {
+  border: 0; background: transparent; text-align: left; padding: 12px 12px; border-radius: 8px; cursor: pointer; font-weight: 600;
+}
+.help-menu button:hover, .help-menu button:focus-visible { background: var(--chip); }
+
+/* Dialogs (welcome, legend) */
+.overlay {
+  position: fixed; inset: 0; z-index: 50; background: var(--overlay); display: grid; place-items: center;
+  padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+}
+.dialog {
+  width: min(640px, 100%); max-height: 100%; overflow: auto; background: var(--panel); color: var(--ink);
+  border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,.35); display: flex; flex-direction: column;
+}
+.dialog-legend { width: min(720px, 100%); }
+.dialog-body { padding: 24px 24px 8px; display: flex; flex-direction: column; gap: 12px; }
+.dialog-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 24px 20px; flex-wrap: wrap; }
+.dialog-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.dialog-title { margin: 0; font: 700 28px/1.05 var(--font-display); text-transform: uppercase; letter-spacing: .02em; text-wrap: balance; }
+.dialog-kicker { margin: 0; font: 700 12px/1 var(--font-display); letter-spacing: .14em; text-transform: uppercase; color: var(--accent); }
+.dialog p { margin: 0; max-width: 62ch; }
+.dialog .lead { font-size: 17px; }
+.btn-quiet { border-color: transparent; background: transparent; color: var(--muted); }
+.dots { display: flex; gap: 6px; }
+.dots span { width: 8px; height: 8px; border-radius: 50%; background: var(--line); }
+.dots span.on { background: var(--accent); }
+.why { display: grid; gap: 12px; margin: 4px 0; padding: 0; list-style: none; }
+.why li { display: grid; grid-template-columns: 44px 1fr; gap: 12px; align-items: start; }
+.why .num { font: 700 30px/1 var(--font-display); color: var(--accent); font-variant-numeric: tabular-nums; }
+.why b { display: block; font-weight: 600; }
+.audience { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.audience div { background: var(--chip); border-radius: 10px; padding: 10px 12px; font-size: 14px; }
+.audience b { display: block; font: 700 12px/1.2 var(--font-display); letter-spacing: .1em; text-transform: uppercase; margin-bottom: 4px; }
+.welcome-art { width: 100%; max-width: 100%; height: auto; border-radius: 12px; display: block; }
+
+/* Legend */
+.legend { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 18px; margin: 0; padding: 0; list-style: none; }
+.legend li { display: grid; grid-template-columns: 64px 1fr; gap: 10px; align-items: center; min-height: 36px; }
+.legend svg { width: 64px; height: 30px; border-radius: 6px; background: var(--court); display: block; }
+.legend .lg-text { font-size: 14px; line-height: 1.3; }
+.legend .lg-text b { font-weight: 600; }
+.legend .lg-doubles { grid-column: 1 / -1; }
+.legend-group { margin: 6px 0 2px; font: 700 12px/1 var(--font-display); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+
+/* Tour */
+.tour { position: fixed; inset: 0; z-index: 60; }
+.tour-hole {
+  position: fixed; border-radius: 12px; pointer-events: none;
+  box-shadow: 0 0 0 4px var(--ball), 0 0 0 9999px var(--overlay);
+  transition: left .2s, top .2s, width .2s, height .2s;
+}
+.tour-card {
+  position: fixed; width: min(360px, calc(100vw - 32px)); background: var(--panel); color: var(--ink);
+  border-radius: 14px; box-shadow: 0 16px 40px rgba(0,0,0,.35); padding: 16px 18px; display: flex; flex-direction: column; gap: 8px;
+}
+.tour-count { font: 700 12px/1 var(--font-display); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.tour-title { margin: 0; font: 700 22px/1.05 var(--font-display); text-transform: uppercase; }
+.tour-text, .tour-tip { margin: 0; }
+.tour-tip { font-size: 14px; color: var(--muted); border-left: 3px solid var(--ball); padding-left: 10px; }
+.tour-tip:empty { display: none; }
+@media (prefers-reduced-motion: reduce) { .tour-hole { transition: none; } }
+
 /* Narrow screens: court first, controls below. */
 @media (max-width: 900px) {
   html, body { height: auto; }
@@ -241,6 +334,11 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
   .step-label { display: none; }
   .step[aria-current="step"] .step-label { display: inline; }
   .panel { overflow: visible; }
+}
+@media (max-width: 640px) {
+  .legend { grid-template-columns: 1fr; }
+  .audience { grid-template-columns: 1fr; }
+  .dialog-title { font-size: 24px; }
 }
 @media (max-width: 520px) {
   .brand-tag { display: none; }

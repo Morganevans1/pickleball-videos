@@ -20,7 +20,7 @@ export function heightComfort(z) {
 
 export const MAX_CONTACT_Z = 7.8;
 export const MIN_CONTACT_Z = 0.3;
-const VOLLEY_LINE = COURT.kitchen - 0.6; // feet behind the line, reaching forward
+const VOLLEY_LINE = COURT.kitchen - 1.5; // feet behind the line, reaching over it
 
 /**
  * Candidate contact points for a player at `pos` (court coords) receiving the
@@ -98,19 +98,20 @@ function rng(seed) {
  * Build the reply set: every likely reply from every chosen contact point,
  * represented by `nSamples` full trajectories, plus a landing-density grid.
  */
-export function buildReplies(contacts, profile, nSamples = 180) {
+export function buildReplies(contacts, profile, nSamples = 180, { netPressure = false } = {}) {
   const entries = [];
   const density = { x0: -12, y0: -25, nx: 24, ny: 25, cell: 1, w: new Float32Array(24 * 25) };
   let totW = 0;
   for (const c of contacts) {
-    const set = launchSet({ x: c.x, y: c.y, z: c.z }, profile, errorScale(c));
+    // In doubles each contact carries the profile of the opponent who plays it.
+    const set = launchSet({ x: c.x, y: c.y, z: c.z }, c.profile || profile, errorScale(c));
     let setW = 0;
     const local = [];
     for (let is = 0; is < set.NS; is++) for (let iv = 0; iv < set.NV; iv++) {
       if (!set.allowed(is, iv)) continue;
       for (let it = 0; it < set.NT; it++) for (let ip = 0; ip < set.nPhi; ip++) {
         const idx = set.index(is, iv, it, ip);
-        const w = percentageWeight(set, idx, GRID.mph[iv]);
+        const w = percentageWeight(set, idx, GRID.mph[iv], { netPressure });
         if (w <= 1e-4) continue;
         local.push({ is, iv, it, ip, idx, w });
         setW += w;

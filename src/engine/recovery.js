@@ -18,18 +18,18 @@ export const T_SET = 0.45;
 export const MOVE_COST = 0.003;    // share of the peak score per foot moved
 export const NEAR_ENOUGH = 0.96;   // a reachable spot this good counts as "made it"
 const SOFT = 0.05;
-const VOLLEY_LINE = COURT.kitchen - 0.6;
+const VOLLEY_LINE = COURT.kitchen - 1.5; // feet behind the line, reaching over it
 
 export const RECOVERY_GRID = { x0: -12, y0: -26, nx: 25, ny: 26, step: 1 };
 
-const lambdaOf = (L) => L / (LEVELS - 1);
+export const lambdaOf = (L) => L / (LEVELS - 1);
 const soft = (x) => 0.5 + (0.5 * x) / (1 + Math.abs(x));
 
-function interceptPoints(reply, quality) {
+export function interceptPoints(reply, quality, stride = 1) {
   const { path } = reply;
   const tc = reply.contact.t;
   const pts = [];
-  for (let k = 1; k < path.n; k++) {
+  for (let k = 1; k < path.n; k += stride) {
     const y = path.y[k], z = path.z[k];
     if (y >= -0.2) continue;
     if (z < MIN_CONTACT_Z || z > MAX_CONTACT_Z) continue;
@@ -43,7 +43,7 @@ function interceptPoints(reply, quality) {
 }
 
 /** Value of each ambition level for one spot against one reply. */
-function spotValues(qx, qy, pts, profile, out) {
+export function spotValues(qx, qy, pts, profile, out) {
   out.fill(0);
   for (const p of pts) {
     const dist = Math.hypot(p.x - qx, p.y - qy) - profile.reach;

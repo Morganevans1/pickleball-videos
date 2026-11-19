@@ -9,7 +9,7 @@ export function readTheme() {
   const g = (n) => cs.getPropertyValue(n).trim();
   return {
     surround: g('--surround'), court: g('--court'), kitchen: g('--kitchen'), line: g('--court-line'),
-    net: g('--net'), ball: g('--ball'), you: g('--you'), opp: g('--opp'), onCourt: g('--on-court'),
+    net: g('--net'), ball: g('--ball'), you: g('--you'), opp: g('--opp'), onCourt: g('--on-court'), partner: g('--partner'),
     sideBg: g('--side-bg'), sideGround: g('--side-ground'), sideInk: g('--side-ink'), ink: g('--ink'),
     accent: g('--accent'), warn: g('--warn'), display: g('--font-display'), body: g('--font-body'),
   };
@@ -131,20 +131,59 @@ function drawLines(ctx, v, th) {
   for (const x of [-COURT.postX, COURT.postX]) { ctx.beginPath(); ctx.arc(v.sx(0), v.sy(x), Math.max(3, v.scale * 0.3), 0, Math.PI * 2); ctx.fill(); }
 }
 
-function drawHeat(ctx, v, th, rec, L) {
-  const G = rec.grid, s = rec.scores[L];
+function drawHeat(ctx, v, th, G, s, fade = 1) {
   let max = 0;
   for (let i = 0; i < s.length; i++) max = Math.max(max, s[i]);
   if (max <= 0) return;
   const cw = v.scale * G.step;
   for (let iy = 0; iy < G.ny; iy++) for (let ix = 0; ix < G.nx; ix++) {
     const rel = s[iy * G.nx + ix] / max;
-    const a = Math.pow(Math.max(0, (rel - 0.55) / 0.45), 1.6) * 0.62;
+    const a = Math.pow(Math.max(0, (rel - 0.55) / 0.45), 1.6) * 0.62 * fade;
     if (a < 0.02) continue;
     ctx.fillStyle = rgba(th.you, a);
     const x = G.x0 + ix * G.step, y = G.y0 + iy * G.step;
     ctx.fillRect(v.sx(y - G.step / 2), v.sy(x - G.step / 2), cw + 0.5, cw + 0.5);
   }
+}
+
+// Doubles: who covers which landing area. Cells are tinted by owner and each
+// zone is labelled at its centre.
+const ZONE_LABELS = ['You', 'Partner', 'Call it', 'Open'];
+function drawZones(ctx, v, th, Z) {
+  const cols = [th.you, th.partner, th.ball, th.opp];
+  const sums = [[0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0]];
+  for (let iy = 0; iy < Z.ny; iy++) for (let ix = 0; ix < Z.nx; ix++) {
+    const c = iy * Z.nx + ix, o = Z.owner[c];
+    if (o === -2) continue;
+    if (Z.x0 + ix < -COURT.halfW || Z.x0 + ix + 1 > COURT.halfW || Z.y0 + iy < -COURT.halfL) continue; // inside the lines only
+    const k = o === -1 ? 3 : o;
+    const a = 0.16 + 0.3 * Z.strength[c];
+    ctx.fillStyle = rgba(cols[k], a);
+    const x = Z.x0 + ix, y = Z.y0 + iy;
+    ctx.fillRect(v.sx(y), v.sy(x), v.scale + 0.5, v.scale + 0.5);
+    const w = Z.strength[c];
+    sums[k][0] += w; sums[k][1] += w * (x + 0.5); sums[k][2] += w * (y + 0.5);
+  }
+  // Outline where responsibility changes hands.
+  ctx.save();
+  ctx.strokeStyle = 'rgba(244,248,251,.75)'; ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  const inCourt = (ix, iy) => Z.x0 + ix >= -COURT.halfW && Z.x0 + ix + 1 <= COURT.halfW && Z.y0 + iy >= -COURT.halfL;
+  const own = (ix, iy) => (ix < 0 || iy < 0 || ix >= Z.nx || iy >= Z.ny || !inCourt(ix, iy) ? -2 : Z.owner[iy * Z.nx + ix]);
+  for (let iy = 0; iy < Z.ny; iy++) for (let ix = 0; ix < Z.nx; ix++) {
+    const o = own(ix, iy);
+    if (o === -2) continue;
+    const x = Z.x0 + ix, y = Z.y0 + iy;
+    const r = own(ix + 1, iy), d = own(ix, iy + 1);
+    if (r !== -2 && r !== o) { ctx.moveTo(v.sx(y), v.sy(x + 1)); ctx.lineTo(v.sx(y + 1), v.sy(x + 1)); }
+    if (d !== -2 && d !== o) { ctx.moveTo(v.sx(y + 1), v.sy(x)); ctx.lineTo(v.sx(y + 1), v.sy(x + 1)); }
+  }
+  ctx.stroke();
+  ctx.restore();
+  sums.forEach(([w, sx, sy], k) => {
+    if (w < 2 || v.scale < 9) return;
+    label(ctx, th, ZONE_LABELS[k], v.sx(sy / w), v.sy(sx / w), { size: 12, bg: rgba(k === 1 || k === 2 ? '#1d2a10' : '#08141c', 0.72), color: k === 2 ? th.ball : k === 3 ? th.opp : k === 1 ? th.partner : th.you });
+  });
 }
 
 function drawDensity(ctx, v, th, density, fade = 1) {
@@ -163,7 +202,7 @@ function drawDensity(ctx, v, th, density, fade = 1) {
   }
 }
 
-function playerDot(ctx, v, th, x, y, color, text, { ghost = false, r = 0.95 } = {}) {
+function playerDot(ctx, v, th, x, y, color, text, { ghost = false, r = 0.95, ring = null } = {}) {
   const X = v.sx(y), Y = v.sy(x), R = Math.max(9, v.scale * r);
   ctx.save();
   if (ghost) {
@@ -174,6 +213,7 @@ function playerDot(ctx, v, th, x, y, color, text, { ghost = false, r = 0.95 } = 
     ctx.fillStyle = color;
     ctx.strokeStyle = 'rgba(8,20,28,.85)'; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.arc(X, Y, R, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    if (ring) { ctx.strokeStyle = ring; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(X, Y, R - 2.5, 0, Math.PI * 2); ctx.stroke(); }
   }
   ctx.restore();
   if (text) label(ctx, th, text, X, Y + R + 11, { size: 12, color: th.onCourt, bg: 'rgba(8,20,28,.55)' });
@@ -202,14 +242,19 @@ function ball(ctx, v, th, p) {
 /**
  * Draw the court scene. `s` is assembled by main.js:
  * { state, step, layers, incoming, shot, analysis, plan, showAnswer, level,
- *   guess, featured: {likely, danger}, anim, reachRadius }
+ *   guess, featured: {likely, danger}, anim, view, doubles, hitter }
  */
 export function drawCourt(ctx, v, th, s) {
   const { state, step, layers, shot, analysis: an } = s;
   drawSurface(ctx, v, th);
   const rally = an && an.outcome === 'rally';
-  if (step >= 4 && s.showAnswer && rally && layers.heat) drawHeat(ctx, v, th, an.rec, s.level);
-  if (step >= 3 && rally && layers.zones) drawDensity(ctx, v, th, an.density, step >= 4 && s.showAnswer && layers.heat ? 0.45 : 1);
+  const view = rally ? s.view : null;
+  const answer = step >= 4 && s.showAnswer && view;
+  const zonesOn = answer && view.zones && layers.split;
+  // The two answer layers would muddy each other, so "who covers what" wins.
+  if (answer && layers.heat && !zonesOn) drawHeat(ctx, v, th, view.grid, view.heat);
+  if (zonesOn) drawZones(ctx, v, th, view.zones);
+  else if (step >= 3 && rally && layers.zones) drawDensity(ctx, v, th, an.density, answer && layers.heat ? 0.45 : 1);
   drawLines(ctx, v, th);
 
   // Side labels
@@ -217,10 +262,10 @@ export function drawCourt(ctx, v, th, s) {
   label(ctx, th, 'Opponent', v.sx(COURT.halfL) - 8, v.sy(-COURT.halfW) - 12, { align: 'right', size: 12, color: rgba(th.onCourt, 0.7) });
 
   // Reachable area in the time available
-  if (step >= 4 && s.showAnswer && rally && s.reachRadius > 0) {
+  if (answer && view.reach && view.reach.r > 0) {
     ctx.save();
-    ctx.strokeStyle = rgba(th.you, 0.85); ctx.lineWidth = 1.5; ctx.setLineDash([3, 5]);
-    ctx.beginPath(); ctx.arc(v.sx(state.student.y), v.sy(state.student.x), s.reachRadius * v.scale, 0, Math.PI * 2); ctx.stroke();
+    ctx.strokeStyle = rgba(view.focus === 1 ? th.partner : th.you, 0.85); ctx.lineWidth = 1.5; ctx.setLineDash([3, 5]);
+    ctx.beginPath(); ctx.arc(v.sx(view.reach.y), v.sy(view.reach.x), view.reach.r * v.scale, 0, Math.PI * 2); ctx.stroke();
     ctx.restore();
   }
 
@@ -285,7 +330,7 @@ export function drawCourt(ctx, v, th, s) {
       if (r.path.bounceIdx >= 0) {
         const X = v.sx(r.path.landY), Y = v.sy(r.path.landX);
         ctx.fillStyle = th.opp; ctx.beginPath(); ctx.arc(X, Y, 5, 0, Math.PI * 2); ctx.fill();
-        if (v.scale >= 9) label(ctx, th, `${text} · ${Math.round(r.mph)} mph`, X, Y + (r.path.landX > s.state.student.x ? 16 : -16), { size: 12, bg: 'rgba(8,20,28,.7)', color: th.onCourt });
+        if (v.scale >= 9 && !(answer && s.doubles)) label(ctx, th, `${text} · ${Math.round(r.mph)} mph`, X, Y + (r.path.landX > s.state.student.x ? 16 : -16), { size: 12, bg: 'rgba(8,20,28,.7)', color: th.onCourt });
       }
     }
     for (const c of an.contacts) {
@@ -294,12 +339,13 @@ export function drawCourt(ctx, v, th, s) {
       ctx.beginPath(); ctx.arc(X, Y, 7 + 6 * c.w, 0, Math.PI * 2); ctx.stroke();
       if (c === an.main) {
         // Opponent's run to the ball
-        const dx = state.opponent.x - c.x, dy = state.opponent.y - c.y, d = Math.hypot(dx, dy) || 1;
+        const rp = c.who === 1 ? state.opponent2 : state.opponent;
+        const dx = rp.x - c.x, dy = rp.y - c.y, d = Math.hypot(dx, dy) || 1;
         const k = Math.min(1, s.oppReach / d);
         const bx = c.x + dx * k, by = c.y + dy * k;
         if (d > s.oppReach + 0.5) {
           ctx.save(); ctx.strokeStyle = rgba(th.opp, 0.8); ctx.lineWidth = 2; ctx.setLineDash([4, 4]);
-          ctx.beginPath(); ctx.moveTo(v.sx(state.opponent.y), v.sy(state.opponent.x)); ctx.lineTo(v.sx(by), v.sy(bx)); ctx.stroke(); ctx.restore();
+          ctx.beginPath(); ctx.moveTo(v.sx(rp.y), v.sy(rp.x)); ctx.lineTo(v.sx(by), v.sy(bx)); ctx.stroke(); ctx.restore();
           playerDot(ctx, v, th, bx, by, th.opp, null, { ghost: true, r: 0.8 });
         }
         const txt = `${c.kind === 'volley' ? 'Volley' : 'After bounce'} · ${c.t.toFixed(2)} s`;
@@ -308,35 +354,39 @@ export function drawCourt(ctx, v, th, s) {
     }
   }
 
-  // Your move
-  if (step >= 4 && s.showAnswer && rally && s.plan) {
-    const pl = s.plan;
-    const st = state.student;
-    const X0 = v.sx(st.y), Y0 = v.sy(st.x), X1 = v.sx(pl.target.y), Y1 = v.sy(pl.target.x);
-    if (pl.dist > 0.6) {
-      ctx.strokeStyle = 'rgba(8,20,28,.6)'; ctx.lineWidth = 7; ctx.lineCap = 'round';
-      ctx.beginPath(); ctx.moveTo(X0, Y0); ctx.lineTo(X1, Y1); ctx.stroke();
-      ctx.strokeStyle = th.onCourt; ctx.lineWidth = 3.5;
-      ctx.beginPath(); ctx.moveTo(X0, Y0); ctx.lineTo(X1, Y1); ctx.stroke();
-      ctx.fillStyle = th.onCourt; arrowHead(ctx, X0, Y0, X1, Y1, 14);
-      // Footsteps along the path
-      const n = pl.pace.steps;
-      ctx.fillStyle = th.onCourt;
-      for (let k = 1; k < n; k++) {
-        const f = k / n;
-        ctx.beginPath(); ctx.arc(X0 + (X1 - X0) * f, Y0 + (Y1 - Y0) * f, 3.2, 0, Math.PI * 2); ctx.fill();
+  // Your move (one plan in singles, two in doubles)
+  if (answer) {
+    const doubles = view.plans.length > 1;
+    view.plans.forEach((pl, i) => {
+      const color = i === 0 ? th.you : th.partner;
+      const X0 = v.sx(pl.start.y), Y0 = v.sy(pl.start.x), X1 = v.sx(pl.target.y), Y1 = v.sy(pl.target.x);
+      const strong = i === view.focus;
+      if (pl.dist > 0.6) {
+        ctx.strokeStyle = 'rgba(8,20,28,.6)'; ctx.lineWidth = strong ? 7 : 5; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(X0, Y0); ctx.lineTo(X1, Y1); ctx.stroke();
+        ctx.strokeStyle = th.onCourt; ctx.lineWidth = strong ? 3.5 : 2.5;
+        ctx.beginPath(); ctx.moveTo(X0, Y0); ctx.lineTo(X1, Y1); ctx.stroke();
+        ctx.fillStyle = th.onCourt; arrowHead(ctx, X0, Y0, X1, Y1, strong ? 14 : 11);
+        const n = pl.pace.steps;
+        for (let k = 1; k < n; k++) {
+          const f = k / n;
+          ctx.beginPath(); ctx.arc(X0 + (X1 - X0) * f, Y0 + (Y1 - Y0) * f, strong ? 3.2 : 2.6, 0, Math.PI * 2); ctx.fill();
+        }
       }
-    }
-    if (!pl.reachableIdeal) {
-      playerDot(ctx, v, th, pl.ideal.x, pl.ideal.y, th.warn, null, { ghost: true });
-      const up = pl.ideal.x <= pl.target.x ? -1 : 1;
-      label(ctx, th, 'Ideal: out of reach', v.sx(pl.ideal.y), v.sy(pl.ideal.x) + up * (v.scale + 16), { size: 12, bg: 'rgba(8,20,28,.75)' });
-      playerDot(ctx, v, th, pl.target.x, pl.target.y, th.you, null, { ghost: true });
-      label(ctx, th, 'Best you can reach', X1, Y1 + (pl.ideal.x <= pl.target.x ? 1 : -1) * (v.scale + 16), { size: 12, bg: 'rgba(8,20,28,.75)' });
-    } else {
-      playerDot(ctx, v, th, pl.target.x, pl.target.y, th.you, null, { ghost: true });
-      label(ctx, th, 'Recover here', X1, Y1 + (pl.target.x < st.x ? -1 : 1) * (v.scale + 16), { size: 12, bg: 'rgba(8,20,28,.75)' });
-    }
+      const away = (a, b) => (a <= b ? -1 : 1);
+      const hereText = doubles ? (i === 0 ? 'You here' : 'Partner here') : 'Recover here';
+      if (pl.reachableIdeal && pl.dist < 1.5) return; // holding still: the player dot says it all
+      const small = v.scale < 9; // phone-sized court: rings only, no labels
+      if (!pl.reachableIdeal) {
+        playerDot(ctx, v, th, pl.ideal.x, pl.ideal.y, th.warn, null, { ghost: true });
+        if (strong && !small) label(ctx, th, 'Ideal: out of reach', v.sx(pl.ideal.y), v.sy(pl.ideal.x) + away(pl.ideal.x, pl.target.x) * (v.scale + 16), { size: 12, bg: 'rgba(8,20,28,.75)' });
+        playerDot(ctx, v, th, pl.target.x, pl.target.y, color, null, { ghost: true });
+        if (!small) label(ctx, th, doubles ? hereText : 'Best you can reach', X1, Y1 - away(pl.ideal.x, pl.target.x) * (v.scale + 16), { size: 12, bg: 'rgba(8,20,28,.75)' });
+      } else {
+        playerDot(ctx, v, th, pl.target.x, pl.target.y, color, null, { ghost: true });
+        if (!small) label(ctx, th, hereText, X1, Y1 + away(pl.target.x, pl.start.x) * (v.scale + 16), { size: 12, bg: 'rgba(8,20,28,.75)' });
+      }
+    });
   }
 
   // Predict guess
@@ -351,12 +401,21 @@ export function drawCourt(ctx, v, th, s) {
   const anim = s.anim;
   const youPos = anim ? anim.you : state.student;
   const oppPos = anim ? anim.opp : state.opponent;
-  playerDot(ctx, v, th, oppPos.x, oppPos.y, th.opp, 'Opp');
+  if (s.doubles) {
+    const opp2Pos = anim ? anim.opp2 : state.opponent2;
+    const partnerPos = anim ? anim.partner : state.partner;
+    playerDot(ctx, v, th, oppPos.x, oppPos.y, th.opp, 'Opp A');
+    playerDot(ctx, v, th, opp2Pos.x, opp2Pos.y, th.opp, 'Opp B');
+    playerDot(ctx, v, th, partnerPos.x, partnerPos.y, th.partner, 'Partner', { ring: th.you });
+  } else {
+    playerDot(ctx, v, th, oppPos.x, oppPos.y, th.opp, 'Opp');
+  }
   playerDot(ctx, v, th, youPos.x, youPos.y, th.you, 'You');
   if (anim && anim.ring != null) {
+    const rp = anim.ringAt || youPos;
     ctx.strokeStyle = th.ball; ctx.lineWidth = 4;
     ctx.beginPath();
-    ctx.arc(v.sx(youPos.y), v.sy(youPos.x), Math.max(9, v.scale * 0.95) + 7, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * anim.ring);
+    ctx.arc(v.sx(rp.y), v.sy(rp.x), Math.max(9, v.scale * 0.95) + 7, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * anim.ring);
     ctx.stroke();
   }
   if (step >= 2 && !anim) crosshair(ctx, v, th, state.target.x, state.target.y);
@@ -415,13 +474,15 @@ export function drawSide(ctx, sv, th, s) {
     ctx.beginPath(); ctx.moveTo(X, Y - 10); ctx.lineTo(X + 10, Y); ctx.lineTo(X, Y + 10); ctx.lineTo(X - 10, Y); ctx.closePath(); ctx.fill(); ctx.stroke();
     label(ctx, th, `Clears by ${shot.clearance.toFixed(1)} ft`, X + 16, Y, { align: 'left', size: 12, color: th.ink, weight: 700 });
     // Speed tag next to the contact
-    label(ctx, th, `${Math.round(shot.mph)} mph`, sv.sx(state.student.y) + 16, sv.sz(state.student.z) - 16, { align: 'left', size: 13, color: th.ink });
+    const h = s.hitter || state.student;
+    label(ctx, th, `${Math.round(shot.mph)} mph`, sv.sx(h.y) + 16, sv.sz(h.z) - 16, { align: 'left', size: 13, color: th.ink });
   }
-  // Contact handle
-  const cx = sv.sx(state.student.y), cz = sv.sz(state.student.z);
-  ctx.fillStyle = th.you; ctx.strokeStyle = th.accent; ctx.lineWidth = 2.5;
+  // Contact handle (whoever hits)
+  const hit = s.hitter || state.student;
+  const cx = sv.sx(hit.y), cz = sv.sz(hit.z);
+  ctx.fillStyle = s.partnerHits ? th.partner : th.you; ctx.strokeStyle = th.accent; ctx.lineWidth = 2.5;
   ctx.beginPath(); ctx.arc(cx, cz, 9, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-  label(ctx, th, `Contact ${state.student.z.toFixed(1)} ft`, cx - 14, cz, { align: 'right', size: 12, color: th.ink });
+  label(ctx, th, `Contact ${hit.z.toFixed(1)} ft`, cx - 14, cz, { align: 'right', size: 12, color: th.ink });
   // Animated ball
   if (s.anim && s.anim.ball) {
     const b = s.anim.ball;

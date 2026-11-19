@@ -173,7 +173,7 @@ export function launchSet(contact, profile, errScale = 1, phiStepDeg = 1.5) {
 }
 
 /** Weight a launch for a "plays the percentages" player. */
-export function percentageWeight(set, idx, mph) {
+export function percentageWeight(set, idx, mph, { netPressure = false } = {}) {
   if (!set.ok[idx]) return 0;
   const p = set.pSucc[idx];
   const c = set.clear[idx];
@@ -182,5 +182,18 @@ export function percentageWeight(set, idx, mph) {
   if (c <= 2.5) prior = 1;
   else if (c > 6 && deep) prior = 0.12;        // a genuine lob
   else prior = Math.exp(-(c - 2.5) / 1.2);       // floaters that sit up are avoided
+  if (netPressure && !(c > 6 && deep)) prior *= attackPenalty(set, idx);
   return p * p * prior;
+}
+
+// With someone at the net, a ball that reaches their kitchen line above
+// about net height gets attacked, so players avoid hitting it.
+const ATTACK_Z = 2.4;
+function attackPenalty(set, idx) {
+  const k = Math.floor(idx / set.nPhi), ip = idx % set.nPhi;
+  const cosPhi = Math.cos(set.phis[ip]);
+  const dLine = (Math.abs(set.contact.y) + COURT.kitchen + 0.5) / Math.max(cosPhi, 0.05);
+  if (!(set.table.landD[k] > dLine)) return 1; // lands in the kitchen first
+  const z = zAtD(set.table, k, dLine);
+  return z > ATTACK_Z ? Math.exp(-(z - ATTACK_Z) / 0.7) : 1;
 }

@@ -53,3 +53,42 @@ export function moveSummary(plan, L, levels) {
   const idealDir = describeDirection(plan.ideal.x - plan.start.x, plan.ideal.y - plan.start.y);
   return `The ideal spot (${idealDir}) is out of reach in ${r1(plan.tMove)} s. Get as far as ${dir}: you still return ${pct}% of their likely replies.`;
 }
+
+// ---------------------------------------------------------------- doubles
+
+const sideOf = (x) => (Math.abs(x) < 2 ? 'in the middle' : x < 0 ? 'on your left' : 'on your right');
+
+export function doublesOpponentSummary(analysis) {
+  if (analysis.outcome !== 'rally') return opponentSummary(analysis);
+  const m = analysis.main;
+  const who = m.who === 0 ? 'Opponent A' : 'Opponent B';
+  const how = m.kind === 'volley' ? 'on the volley' : 'after the bounce';
+  return `${who} (${sideOf(m.x)}) will most likely take it ${how}, ${zoneName(m.y).replace('the ', 'their ')}, ${r1(m.t)} s after the hit.`;
+}
+
+function moveWords(plan) {
+  const d = describeDirection(plan.target.x - plan.start.x, plan.target.y - plan.start.y);
+  if (plan.dist < 1) return 'hold your spot';
+  const steps = plan.pace.steps;
+  return `${d} (${steps <= 0 ? 'a half step' : `${steps} step${steps === 1 ? '' : 's'}`}, ${plan.pace.level.label.toLowerCase()})`;
+}
+
+/**
+ * @param tp      teamPlan() result
+ * @param shares  { you, partner, call } shares of likely replies (0–1)
+ */
+export function doublesMoveSummary(tp, shares) {
+  const [you, partner] = tp.plans;
+  const pct = Math.round(tp.getBack * 100);
+  const youTxt = you.dist < 1 ? 'Hold your spot' : `Move ${moveWords(you)}`;
+  const partnerTxt = partner.dist < 1 ? 'your partner holds theirs' : `your partner moves ${moveWords(partner).replace(/to your (left|right)/g, 'to the $1')}`;
+  let t = tp.made
+    ? `${youTxt}; ${partnerTxt}. Together you return ${pct}% of their likely replies.`
+    : `The best pair of spots is out of reach in time. ${youTxt}; ${partnerTxt}. That still returns ${pct}% of their likely replies.`;
+  if (shares) {
+    const y = Math.round(shares.you * 100), p = Math.round(shares.partner * 100);
+    t += ` You take about ${y}% of them, your partner ${p}%.`;
+    if (shares.call >= 0.06) t += ' Balls between you are a toss-up: call them early.';
+  }
+  return t;
+}
