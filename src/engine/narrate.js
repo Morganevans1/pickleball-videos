@@ -33,8 +33,15 @@ export function opponentSummary(analysis) {
   if (analysis.outcome === 'out') return 'This lands out. A smart opponent lets it go.';
   if (analysis.outcome === 'forced-error') return 'They can reach it, but have no reliable reply. Expect an error.';
   const m = analysis.main;
-  const how = m.kind === 'volley' ? 'on the volley' : 'after the bounce';
-  return `They will most likely take it ${how}, ${zoneName(m.y).replace('the ', 'their ')}, ${r1(m.t)} s after you hit.`;
+  return `They ${contactWords(analysis)}, ${zoneName(m.y).replace('the ', 'their ')}, ${r1(m.t)} s after you hit.`;
+}
+
+// Say whether bouncing is the rule, the only option, or a choice.
+function contactWords(analysis) {
+  const m = analysis.main;
+  if (analysis.mustBounce) return 'must let it bounce (two-bounce rule) and will take it';
+  if (m.kind === 'bounce' && !analysis.couldVolley) return 'cannot reach it in the air and will take it after the bounce';
+  return `will most likely take it ${m.kind === 'volley' ? 'on the volley' : 'after the bounce'}`;
 }
 
 export function moveSummary(plan, L, levels) {
@@ -62,8 +69,7 @@ export function doublesOpponentSummary(analysis) {
   if (analysis.outcome !== 'rally') return opponentSummary(analysis);
   const m = analysis.main;
   const who = m.who === 0 ? 'Opponent A' : 'Opponent B';
-  const how = m.kind === 'volley' ? 'on the volley' : 'after the bounce';
-  return `${who} (${sideOf(m.x)}) will most likely take it ${how}, ${zoneName(m.y).replace('the ', 'their ')}, ${r1(m.t)} s after the hit.`;
+  return `${who} (${sideOf(m.x)}) ${contactWords(analysis)}, ${zoneName(m.y).replace('the ', 'their ')}, ${r1(m.t)} s after the hit.`;
 }
 
 function moveWords(plan) {
@@ -88,7 +94,7 @@ export function doublesMoveSummary(tp, shares) {
   if (shares) {
     const y = Math.round(shares.you * 100), p = Math.round(shares.partner * 100);
     t += ` You take about ${y}% of them, your partner ${p}%.`;
-    if (shares.call >= 0.06) t += ' Balls between you are a toss-up: call them early.';
+    if (shares.call >= 0.06) t += ` About ${Math.round(shares.call * 100)}% land in the yellow "call it" area, where you are equally well placed: decide early who takes them, and say it out loud.`;
   }
   return t;
 }

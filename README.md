@@ -33,9 +33,13 @@ Switch **Singles | Doubles** next to the app name.
 - **You hit / Partner hits** chooses who plays the shot, so you can ask "your partner just hit
   that, where do *you* go?"
 - Either opponent may play the ball. Whoever has the better contact takes it.
+- **Rules:** with *Return of serve* selected, the serve and the return must both bounce (two-bounce
+  rule) and the note says so. If the players are set up like a serve and return (you deep, partner at
+  the net, both opponents back) while Rules is on *Rally*, the app offers to apply the rule.
 - The app places **both** of you: a reply counts as covered if either of you can handle it.
-- **Who covers what** tints the landing areas by who takes them: you, your partner, *call it*
-  (either could), or open.
+- **Who covers what** tints the landing areas by who takes them: you, your partner, open (neither
+  can reach it) or **call it**: balls you are both equally well placed for. Those are the ones
+  partners collide on or both leave, so agree early who takes them and say "mine" or "yours".
 - Tap your dot or your partner's (or use the **You | Partner** switch) to see that player's numbers
   and move.
 

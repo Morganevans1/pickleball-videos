@@ -2,7 +2,7 @@
 
 import {
   DEFAULT_STATE, profilesFor, solveStudentShot, solveIncoming, analyse,
-  isDoubles, partnerHits, hitterOf, withDoublesPositions,
+  isDoubles, partnerHits, hitterOf, withDoublesPositions, looksLikeReturn,
 } from './engine/scenario.js';
 import { SHOTS, shotById } from './engine/solver.js';
 import { LEVELS, movePlan, scoreAt, replyValues } from './engine/recovery.js';
@@ -92,7 +92,7 @@ function saveState() {
 
 let state = loadState();
 const ui = {
-  step: 4, level: 5, mode: 'lesson', guess: null, revealed: false, focus: 0,
+  step: 4, level: 5, mode: 'lesson', guess: null, revealed: false, focus: 0, keepRally: false,
   layers: { heat: true, fan: true, zones: true, split: true },
 };
 let profiles = profilesFor(state);
@@ -348,8 +348,13 @@ function refreshSummary() {
   const pHits = partnerHits(state);
   const h = hitterOf(state);
   if (incoming) {
-    const who = pHits ? 'your partner, who takes' : 'you and you take';
-    parts.push([1, `The ball comes to ${who} it ${incoming.kind === 'volley' ? 'in the air' : 'after the bounce'} at ${h.z.toFixed(1)} ft, ${zoneName(h.y)}.`]);
+    const taker = pHits ? 'your partner takes' : 'you take';
+    if (state.rule === 'return') {
+      parts.push([1, `The serve must bounce (two-bounce rule), and ${taker} it at ${h.z.toFixed(1)} ft, ${zoneName(h.y)}. The return must bounce too.`]);
+    } else {
+      const who = pHits ? 'your partner, who takes' : 'you and you take';
+      parts.push([1, `The ball comes to ${who} it ${incoming.kind === 'volley' ? 'in the air' : 'after the bounce'} at ${h.z.toFixed(1)} ft, ${zoneName(h.y)}.`]);
+    }
   }
   if (shot && shot.ok && step >= 2) {
     let t = shotSummary(shot);
@@ -369,6 +374,9 @@ function refreshSummary() {
     note.appendChild(span);
   });
   if (stale) note.appendChild(Object.assign(document.createElement('span'), { textContent: parts.length ? ' Working out their options…' : 'Working out their options…' }));
+
+  // Serve-and-return formation while Rules says "Rally": offer the rule.
+  $('suggest').hidden = !(looksLikeReturn(state) && !ui.keepRally && !anim);
 
   // Banner
   const banner = $('banner');
@@ -441,7 +449,7 @@ function setFormat(f) {
       && Math.hypot(state.opponent2.x - state.opponent.x, state.opponent2.y - state.opponent.y) >= 3;
     if (!ok) state = withDoublesPositions(state);
   }
-  ui.focus = 0; ui.guess = null; ui.revealed = false;
+  ui.focus = 0; ui.guess = null; ui.revealed = false; ui.keepRally = false;
   fillExamples();
   recomputeAll();
 }
@@ -462,7 +470,7 @@ function buildControls() {
     const keep = Object.fromEntries(KEEP.map((k) => [k, state[k]]));
     state = { ...structuredClone(DEFAULT_STATE), ...structuredClone(ex.state), ...keep };
     sel.value = '';
-    ui.guess = null; ui.revealed = false;
+    ui.guess = null; ui.revealed = false; ui.keepRally = false;
     recomputeAll();
   });
 
@@ -519,6 +527,8 @@ function buildControls() {
     $(id).addEventListener('change', (e) => { ui.layers[key] = e.target.checked; requestDraw(); });
   }
 
+  $('suggest-apply').addEventListener('click', () => { state.rule = 'return'; recomputeAll(); });
+  $('suggest-dismiss').addEventListener('click', () => { ui.keepRally = true; refresh(); });
   $('reveal').addEventListener('click', () => { ui.revealed = true; refresh(); });
   $('retry').addEventListener('click', () => { ui.guess = null; ui.revealed = false; refresh(); });
   $('play').addEventListener('click', () => (anim ? stopPlay() : startPlay()));

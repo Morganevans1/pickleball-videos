@@ -60,6 +60,18 @@ export function withDoublesPositions(state) {
   };
 }
 
+/**
+ * Doubles formation that is almost certainly serve-and-return: our hitter
+ * deep, their partner up at the net, both opponents back. In a rally the
+ * serving team would rarely both still be on the baseline.
+ */
+export function looksLikeReturn(state) {
+  if (!isDoubles(state) || state.rule === 'return') return false;
+  const h = hitterOf(state), mate = partnerHits(state) ? state.student : state.partner;
+  return Math.abs(h.y) >= 19 && Math.abs(mate.y) <= 11
+    && Math.abs(state.opponent.y) >= 17 && Math.abs(state.opponent2.y) >= 17;
+}
+
 /** How the incoming ball arrives: volley or after the bounce. */
 export function incomingKind(state) {
   if (state.rule === 'return') return 'bounce';
@@ -151,7 +163,9 @@ export function analyse(state, shotSol, profiles = profilesFor(state)) {
     replies, profile: profiles.student, start: { x: state.student.x, y: state.student.y },
     timeAvail: earliest.t, quality,
   });
-  return { outcome: 'rally', contacts, main, replies, density, rec, cands: opts.cands };
+  const mustBounce = state.rule === 'return';
+  const couldVolley = opts.cands.some((c) => c.kind === 'volley');
+  return { outcome: 'rally', contacts, main, replies, density, rec, cands: opts.cands, mustBounce, couldVolley };
 }
 
 /**
@@ -203,6 +217,7 @@ function analyseDoubles(state, shotSol, profiles) {
   players[1].tMove = Math.max(0, earliest.t - lag(!youHit, profiles.partner));
   const rec = analyseTeam({ replies, players });
   rec.timeAvail = earliest.t;
-  return { outcome: 'rally', doubles: true, contacts, main, replies, density, rec };
+  const couldVolley = groups.some((g) => g.cands.some((c) => c.kind === 'volley'));
+  return { outcome: 'rally', doubles: true, contacts, main, replies, density, rec, mustBounce, couldVolley };
 }
 

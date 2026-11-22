@@ -149,7 +149,7 @@ function drawHeat(ctx, v, th, G, s, fade = 1) {
 // Doubles: who covers which landing area. Cells are tinted by owner and each
 // zone is labelled at its centre.
 const ZONE_LABELS = ['You', 'Partner', 'Call it', 'Open'];
-function drawZones(ctx, v, th, Z) {
+function drawZones(ctx, v, th, Z, avoid = []) {
   const cols = [th.you, th.partner, th.ball, th.opp];
   const sums = [[0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0]];
   for (let iy = 0; iy < Z.ny; iy++) for (let ix = 0; ix < Z.nx; ix++) {
@@ -180,9 +180,29 @@ function drawZones(ctx, v, th, Z) {
   }
   ctx.stroke();
   ctx.restore();
+  // Label each zone on one of its own cells (nearest its centre), and keep
+  // labels from landing on top of each other.
+  // Players count as already-placed labels, so zone labels move off them.
+  const placed = avoid.map((p) => [v.sx(p.y), v.sy(p.x)]);
   sums.forEach(([w, sx, sy], k) => {
     if (w < 2 || v.scale < 9) return;
-    label(ctx, th, ZONE_LABELS[k], v.sx(sy / w), v.sy(sx / w), { size: 12, bg: rgba(k === 1 || k === 2 ? '#1d2a10' : '#08141c', 0.72), color: k === 2 ? th.ball : k === 3 ? th.opp : k === 1 ? th.partner : th.you });
+    const cx = sx / w, cy = sy / w;
+    let best = null, bd = Infinity;
+    for (let iy = 0; iy < Z.ny; iy++) for (let ix = 0; ix < Z.nx; ix++) {
+      const o = Z.owner[iy * Z.nx + ix];
+      if ((o === -1 ? 3 : o) !== k || !inCourt(ix, iy) || Z.strength[iy * Z.nx + ix] < 0.3) continue;
+      const d = (Z.x0 + ix + 0.5 - cx) ** 2 + (Z.y0 + iy + 0.5 - cy) ** 2;
+      if (d < bd) { bd = d; best = [Z.x0 + ix + 0.5, Z.y0 + iy + 0.5]; }
+    }
+    if (!best) return;
+    const X = v.sx(best[1]);
+    let Y = v.sy(best[0]);
+    // A "You"/"Partner" zone right next to that player is already labelled by their dot.
+    const owner = k < 2 ? avoid[k] : null;
+    if (owner && Math.hypot(v.sx(owner.y) - X, v.sy(owner.x) - Y) < 80) return;
+    for (let tries = 0; tries < 4 && placed.some(([px, py]) => Math.abs(px - X) < 60 && Math.abs(py - Y) < 26); tries++) Y += 24;
+    placed.push([X, Y]);
+    label(ctx, th, ZONE_LABELS[k], X, Y, { size: 12, bg: rgba(k === 1 || k === 2 ? '#1d2a10' : '#08141c', 0.72), color: k === 2 ? th.ball : k === 3 ? th.opp : k === 1 ? th.partner : th.you });
   });
 }
 
@@ -253,7 +273,7 @@ export function drawCourt(ctx, v, th, s) {
   const zonesOn = answer && view.zones && layers.split;
   // The two answer layers would muddy each other, so "who covers what" wins.
   if (answer && layers.heat && !zonesOn) drawHeat(ctx, v, th, view.grid, view.heat);
-  if (zonesOn) drawZones(ctx, v, th, view.zones);
+  if (zonesOn) drawZones(ctx, v, th, view.zones, [state.student, state.partner, ...view.plans.map((p) => p.target)]);
   else if (step >= 3 && rally && layers.zones) drawDensity(ctx, v, th, an.density, answer && layers.heat ? 0.45 : 1);
   drawLines(ctx, v, th);
 

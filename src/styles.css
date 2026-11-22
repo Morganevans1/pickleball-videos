@@ -220,6 +220,8 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 .note b { font-weight: 600; }
 .predict { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 14px; }
 .predict p { margin: 0; flex: 1 1 280px; font-size: 16px; }
+.suggest { border-color: var(--ball); box-shadow: inset 4px 0 0 var(--ball); }
+.suggest b { font-weight: 600; }
 .predict-actions { display: flex; gap: 8px; }
 
 /* Keep the top bar on one line at tablet widths */

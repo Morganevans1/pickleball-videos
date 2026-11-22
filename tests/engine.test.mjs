@@ -179,3 +179,38 @@ test('doubles: either opponent can play the ball', () => {
   assert.equal(toLeft.main.who, 0);   // opponent A stands at x = -4
   assert.equal(toRight.main.who, 1);  // opponent B stands at x = +4
 });
+
+// ---------------------------------------------------------------- rules
+
+import { looksLikeReturn } from '../src/engine/scenario.js';
+import { opponentSummary, doublesOpponentSummary } from '../src/engine/narrate.js';
+
+const returnFormation = (extra = {}) => ({
+  ...structuredClone(DEFAULT_STATE), format: 'doubles',
+  student: { x: 9, y: -23.7, z: 3.4 }, partner: { x: -2.5, y: -8.3, z: 2 },
+  opponent: { x: -6.9, y: 22.7 }, opponent2: { x: 5, y: 23.6 },
+  shotId: 'drive', target: { x: 1.4, y: 21.2 }, clearance: 2.5, ...extra,
+});
+
+test('rules: a serve-and-return formation is recognised', () => {
+  assert.equal(looksLikeReturn(returnFormation()), true);
+  assert.equal(looksLikeReturn(returnFormation({ rule: 'return' })), false); // already applied
+  assert.equal(looksLikeReturn(dinkState({ x: -4, y: 4.5 })), false);       // four at the net
+});
+
+test('rules: with the two-bounce rule the opponents never volley the return', () => {
+  // Opponent B rushes the net: in a rally they could volley it, on the return they cannot.
+  const st = returnFormation({ rule: 'return', opponent2: { x: 3, y: 12 } });
+  const an = runDoubles(st);
+  assert.equal(an.outcome, 'rally');
+  assert.ok(an.contacts.every((c) => c.kind === 'bounce'));
+  assert.match(doublesOpponentSummary(an), /must let it bounce \(two-bounce rule\)/);
+});
+
+test('rules: the note only says "most likely" when there was a real choice', () => {
+  const st = returnFormation();
+  const an = runDoubles(st);
+  if (!an.couldVolley) assert.doesNotMatch(doublesOpponentSummary(an), /most likely/);
+  const single = analyse({ ...structuredClone(DEFAULT_STATE), rule: 'return' }, solveStudentShot({ ...structuredClone(DEFAULT_STATE), rule: 'return' }));
+  assert.match(opponentSummary(single), /two-bounce rule/);
+});
