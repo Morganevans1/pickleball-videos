@@ -1,6 +1,7 @@
 // Render driver.
 //   node render.js stills  <outDir> <t1> [t2 ...]          -> PNG stills at given times (seconds)
 //   node render.js video   <out.mkv> <startFrame> <endFrame> -> lossless video segment [start, end)
+//   PAGE=character-study.html#poses node render.js stills ...   -> render another page
 const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
@@ -12,7 +13,8 @@ async function open() {
   const page = await browser.newPage({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 1 });
   page.on('pageerror', e => { console.error('PAGE ERROR', e); process.exitCode = 2; });
   page.on('console', m => { if (m.type() === 'error') console.error('console:', m.text()); });
-  await page.goto('file://' + path.resolve(__dirname, 'index.html'));
+  const [file, hash = ''] = (process.env.PAGE || 'index.html').split('#');
+  await page.goto('file://' + path.resolve(__dirname, file) + (hash ? '#' + hash : ''));
   await page.evaluate(() => window.ready);
   return { browser, page };
 }
