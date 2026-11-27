@@ -1,6 +1,6 @@
 // The Bounce Machine — scene setup. Views: #exterior, #cutaway, #plan
 import * as THREE from 'three';
-import { buildWorld, W, L, COURTS, MEZ, DOOR, DESK, STAIRS } from './world.js';
+import { buildWorld, W, L, COURTS, MEZ, DOOR, DESK, STAIR } from './world.js';
 import { makePerson, setPose, POSES, CAST, randomSpec } from './people.js';
 import * as T from './textures.js';
 
@@ -71,7 +71,10 @@ function populate() {
   place(randomSpec(seed++), 'talk', 8.5, my, MEZ.z0 + 0.9, 40, { paddle: false });
   place(randomSpec(seed++), 'stand', 8.0, my, DOOR.zc + 1.4, -90, { paddle: false });
   // lobby: staff at the front desk, members arriving
-  place(randomSpec(seed++), 'talk', DESK.x - 0.75, 0, DESK.z + 0.3, 90, { paddle: false });
+  place(randomSpec(seed++), 'wave', DESK.x - 0.8, 0, DESK.z + 0.5, 90, { paddle: false });
+  place(randomSpec(seed++), 'talk', DESK.x - 0.8, 0, DESK.z - 0.8, 90, { paddle: false });
+  place(randomSpec(seed++), 'rail', STAIR.xBack + 0.55, STAIR.landY, DOOR.zc - 0.45, 90, { paddle: false });
+  place(randomSpec(seed++), 'rail', STAIR.xBack + 0.55, STAIR.landY, DOOR.zc + 0.5, 90, { paddle: false });
   place(randomSpec(seed++), 'walk', W - 1.7, 0, DOOR.zc - 0.8, -90);
   place(randomSpec(seed++), 'wave', W - 2.2, 0, DOOR.zc + 1.1, -90);
 }
@@ -79,7 +82,8 @@ function populate() {
 const VIEWS = {
   exterior: () => frame([W + 1, 3.2, DOOR.zc - 3], [1.0, 0.42, 0.55], 24),
   cutaway: () => frame([W / 2 + 1.5, 0, L / 2 - 1.5], [0.95, 1.18, 0.5], 64),
-  close: () => frame([24, 2.6, 46], [0.9, 0.75, 0.75], 15),
+  close: () => frame([27.5, 2.4, 40.5], [0.9, 0.75, -0.62], 15),
+  desk: () => frame([W - 4.6, 2.1, DOOR.zc], [1, 0.22, 0.12], 6.2),
   plan: () => frame([W / 2, 0, L / 2], [0, 1, 0.00001], 56, [-1, 0, 0]),
 };
 function applyMode(mode) {
@@ -109,7 +113,7 @@ function overlay(mode) {
   for (const c of Object.values(COURTS)) label(String(c.num), [c.cx, 0, c.cz], { size: c.premium ? 64 : 54 });
   label('MEZZANINE', [MEZ.x1 / 2 + 2, MEZ.y + 1, DOOR.zc], { size: 30, ls: 6, color: '#9FE3F7' });
   label('FRONT DESK', [DESK.x - 0.2, 1, DESK.z], { size: 20, ls: 2, color: '#FFE08A', stroke: 6 });
-  label('STAIRS', [W - 6.6, 1, STAIRS[0].z0 - 1.5], { size: 18, ls: 2, color: '#FFE08A', stroke: 6 });
+  label('STAIRS', [STAIR.xBack - 1.4, 2, DOOR.zc], { size: 18, ls: 2, color: '#FFE08A', stroke: 6 });
   label('MAIN DOORS ▼', [W + 3.2, 1, DOOR.zc], { size: 22, ls: 2, color: '#FFFFFF', stroke: 6 });
   label('BOUNCE BANNER', [2, 1, 0.8], { size: 18, ls: 3, color: '#9FE3F7', stroke: 6 });
   label('BOUNCE BANNER', [2, 1, L - 0.8], { size: 18, ls: 3, color: '#9FE3F7', stroke: 6 });

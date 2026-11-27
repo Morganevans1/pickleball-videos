@@ -6,16 +6,20 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import * as T from './textures.js';
 
 export const W = 37, L = 82.6, EAVE = 6.0, RIDGE = 9.6;
+// Facing the front desk from the main doors: courts 1-7 are to the right ("WEST"), 8-14 to the left ("EAST"),
+// exactly as the sign over the desk says.
 export const ROWS = [
-  { z0: 0, z1: 18.3, courts: [11, 12, 13, 14], premium: false },
-  { z0: 18.3, z1: 38.3, courts: [8, 9, 10], premium: true },
-  { z0: 44.3, z1: 64.3, courts: [3, 2, 1], premium: true },
-  { z0: 64.3, z1: 82.6, courts: [7, 5, 6, 4], premium: false },
+  { z0: 0, z1: 18.3, courts: [4, 6, 5, 7], premium: false },
+  { z0: 18.3, z1: 38.3, courts: [1, 2, 3], premium: true },
+  { z0: 44.3, z1: 64.3, courts: [10, 9, 8], premium: true },
+  { z0: 64.3, z1: 82.6, courts: [14, 13, 12, 11], premium: false },
 ];
-export const MEZ = { z0: 38.3, z1: 44.3, x0: 0.3, x1: 28.0, y: 3.4, t: 0.35 };
+export const MEZ = { z0: 38.3, z1: 44.3, x0: 0.3, x1: W - 8.6, y: 3.6, t: 0.35 };
 export const DOOR = { z0: 39.3, z1: 43.3, h: 3.0, zc: 41.3 };
-export const DESK = { x: W - 3.1, z: 41.3 };
-export const STAIRS = [{ z0: 38.6, z1: 39.9 }, { z0: 42.7, z1: 44.0 }]; // bottom at x = W-4.3, top at MEZ.x1
+export const DESK = { x: W - 2.95, z: 41.3 };
+// Stairs: two side flights rise inward (along z) behind the desk wall, meet at a landing,
+// then one central flight of 10 steps climbs (toward -x) to the mezzanine.
+export const STAIR = { xFront: W - 4.5, xBack: W - 5.8, landY: 1.8, zl0: 40.3, zl1: 42.3, run: 0.24, n: 10, cRun: 0.28 };
 export const COURTS = {};
 ROWS.forEach(r => {
   const n = r.courts.length, bw = W / n;
@@ -281,29 +285,62 @@ export async function buildWorld(scene, A) {
   TX.rail.repeat.set(14, 1.5);
   railing(mz.x0, mz.z0 + 0.05, mz.x1, mz.z0 + 0.05, mz.y, G.interior);
   railing(mz.x0, mz.z1 - 0.05, mz.x1, mz.z1 - 0.05, mz.y, G.interior);
-  railing(mz.x1 - 0.05, STAIRS[0].z1 + 0.1, mz.x1 - 0.05, STAIRS[1].z0 - 0.1, mz.y, G.interior);
-  // two staircases behind the front desk, climbing from the lobby to the mezzanine
-  const nSteps = 17, rise = mz.y / nSteps, xb = W - 4.3, run = (xb - mz.x1) / nSteps;
-  const stepMat = lam('#D9DADC');
-  for (const s of STAIRS) {
-    const geos = [];
-    for (let i = 0; i < nSteps; i++) { const top = (i + 1) * rise; geos.push(boxGeo(run + 0.01, top, s.z1 - s.z0, xb - (i + 0.5) * run, top / 2, (s.z0 + s.z1) / 2)); }
-    G.interior.add(shade(new THREE.Mesh(mergeGeometries(geos), stepMat)));
-    for (const zr of [s.z0 + 0.04, s.z1 - 0.04]) {
-      const g = new THREE.Group();
-      beam([xb, 1.0, zr], [mz.x1, mz.y + 1.0, zr], 0.07, M.white, g);
-      for (let i = 0; i <= 4; i++) { const u = i / 4; box(0.05, 1.0, 0.05, M.white, xb - u * (xb - mz.x1), u * mz.y + 0.5, zr, g); }
-      G.interior.add(g);
-    }
+  railing(mz.x1 - 0.05, mz.z0 + 0.1, mz.x1 - 0.05, STAIR.zl0 - 0.05, mz.y, G.interior);
+  railing(mz.x1 - 0.05, STAIR.zl1 + 0.05, mz.x1 - 0.05, mz.z1 - 0.1, mz.y, G.interior);
+  // ---- the staircase: side flights rise inward from left and right, meet behind the desk, last 10 steps go up the middle
+  const S = STAIR, stepMat = lam('#D9DADC'), rise = S.landY / S.n, cRise = (mz.y - S.landY) / S.n;
+  const sGeos = [];
+  for (let i = 0; i < S.n; i++) {
+    const top = (i + 1) * rise;
+    sGeos.push(boxGeo(S.xFront - S.xBack, top, S.run + 0.01, (S.xFront + S.xBack) / 2, top / 2, S.zl0 - S.n * S.run + (i + 0.5) * S.run));
+    sGeos.push(boxGeo(S.xFront - S.xBack, top, S.run + 0.01, (S.xFront + S.xBack) / 2, top / 2, S.zl1 + S.n * S.run - (i + 0.5) * S.run));
   }
-  // front desk straight inside the main doors
+  sGeos.push(boxGeo(S.xFront - S.xBack, S.landY, S.zl1 - S.zl0, (S.xFront + S.xBack) / 2, S.landY / 2, (S.zl0 + S.zl1) / 2));
+  for (let i = 0; i < S.n; i++) {
+    const top = S.landY + (i + 1) * cRise;
+    sGeos.push(boxGeo(S.cRun + 0.01, top, S.zl1 - S.zl0, S.xBack - (i + 0.5) * S.cRun, top / 2, (S.zl0 + S.zl1) / 2));
+  }
+  G.interior.add(shade(new THREE.Mesh(mergeGeometries(sGeos), stepMat)));
+  G.stairPath = { // for the animation: bottom of each side flight, the landing, the top
+    left: [(S.xFront + S.xBack) / 2, 0, S.zl0 - S.n * S.run], right: [(S.xFront + S.xBack) / 2, 0, S.zl1 + S.n * S.run],
+    landing: [(S.xFront + S.xBack) / 2, S.landY, DOOR.zc], top: [mz.x1, mz.y, DOOR.zc],
+  };
+  const slopeRail = (a, b, parent = G.interior) => {
+    const g = new THREE.Group();
+    beam([a[0], a[1] + 1.0, a[2]], [b[0], b[1] + 1.0, b[2]], 0.07, M.white, g);
+    beam([a[0], a[1] + 0.5, a[2]], [b[0], b[1] + 0.5, b[2]], 0.035, M.white, g);
+    const n = Math.max(2, Math.round(Math.hypot(b[0] - a[0], b[2] - a[2]) / 0.8));
+    for (let i = 0; i <= n; i++) { const u = i / n; box(0.05, 1.0, 0.05, M.white, a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u + 0.5, a[2] + (b[2] - a[2]) * u, g); }
+    parent.add(g);
+  };
+  const zLb = S.zl0 - S.n * S.run, zRb = S.zl1 + S.n * S.run;
+  for (const x of [S.xFront - 0.04, S.xBack + 0.04]) {
+    slopeRail([x, 0, zLb], [x, S.landY, S.zl0]); slopeRail([x, 0, zRb], [x, S.landY, S.zl1]);
+  }
+  slopeRail([S.xBack, S.landY, S.zl0 + 0.04], [mz.x1, mz.y, S.zl0 + 0.04]); slopeRail([S.xBack, S.landY, S.zl1 - 0.04], [mz.x1, mz.y, S.zl1 - 0.04]);
+  // ---- the desk wall: whitewashed shiplap, TV, the check-in sign; its top is the landing's front wall
+  const shipTx = T.shiplap(); shipTx.repeat.set(0.52, 0.52);
+  const shipM = new THREE.MeshLambertMaterial({ map: shipTx });
+  const wallH = S.landY + 1.05, wz0 = S.zl0 - 0.7, wz1 = S.zl1 + 0.7;
+  box(0.14, wallH, wz1 - wz0, [shipM, shipM, lam('#2A2D31'), shipM, shipM, shipM], S.xFront + 0.07, wallH / 2, (wz0 + wz1) / 2, G.interior);
+  box(0.22, 0.08, wz1 - wz0 + 0.04, lam('#2A2D31'), S.xFront + 0.07, wallH + 0.04, (wz0 + wz1) / 2, G.interior);
+  const decal = (w, h, map, y, z) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), basic({ map })); m.position.set(S.xFront + 0.15, y, z); m.rotation.y = Math.PI / 2; G.interior.add(m); return m; };
+  decal(3.3, 0.97, T.deskSign(A), wallH - 0.6, DOOR.zc);
+  box(0.06, 0.66, 1.12, M.black, S.xFront + 0.17, 1.55, DOOR.zc + 0.15, G.interior);
+  const tv = new THREE.Mesh(new THREE.PlaneGeometry(1.06, 0.6), basic({ map: T.tvScreen() })); tv.position.set(S.xFront + 0.205, 1.55, DOOR.zc + 0.15); tv.rotation.y = Math.PI / 2; G.interior.add(tv);
+  decal(0.36, 0.5, T.lobDinkSmash(), 1.08, wz1 - 0.5);
+  decal(0.36, 0.44, TX.deskMark, 1.56, wz1 - 0.5);
+  // ---- the front desk: dark front, chunky wood top
   const desk = new THREE.Group(); desk.position.set(DESK.x, 0, DESK.z);
-  box(0.75, 1.1, 2.4, M.white, 0, 0.55, 0, desk); box(0.95, 0.06, 2.55, lam('#C9A57A'), 0, 1.13, 0, desk);
-  const dm = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 0.75), basic({ map: TX.deskMark })); dm.position.set(0.381, 0.58, 0); dm.rotation.y = Math.PI / 2; desk.add(dm);
-  box(0.06, 0.32, 0.5, M.black, -0.15, 1.33, 0.5, desk);
+  const woodTx = T.woodTop(); woodTx.repeat.set(0.5, 1);
+  box(0.8, 1.02, 3.8, lam('#34373C'), 0, 0.51, 0, desk);
+  box(1.0, 0.09, 3.95, new THREE.MeshLambertMaterial({ map: woodTx }), 0.02, 1.07, 0, desk);
+  box(0.42, 0.3, 0.6, lam('#2B2E33'), -0.1, 1.27, -0.9, desk);                       // laptop
+  const lamp = shade(new THREE.Mesh(new THREE.SphereGeometry(0.08, 12, 8), lam('#E23B2E', { emissive: '#7A1010' }))); lamp.position.set(-0.05, 1.2, -1.35); desk.add(lamp);
+  box(0.14, 0.24, 0.14, lam('#F08A24'), 0.1, 1.24, -1.65, desk);                     // pumpkin-orange planter
   G.interior.add(desk); G.desk = desk;
   // the BOUNCE ball kiosk at the top of the stairs
-  const kiosk = new THREE.Group(); kiosk.position.set(mz.x1 - 1.3, mz.y, DOOR.zc);
+  const kiosk = new THREE.Group(); kiosk.position.set(mz.x1 - 1.0, mz.y, S.zl1 + 1.0);
   box(0.55, 1.75, 0.55, M.white, 0, 0.875, 0, kiosk);
   const km = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.32), basic({ map: TX.deskMark })); km.position.set(0.28, 1.0, 0); km.rotation.y = Math.PI / 2; kiosk.add(km);
   for (let i = 0; i < 8; i++) { const b = shade(new THREE.Mesh(new THREE.SphereGeometry(0.075, 12, 8), M.ball)); b.position.set(0.3, 0.25 + (i % 4) * 0.12 + (i > 3 ? 1.2 : 0), -0.12 + (i % 2) * 0.24); kiosk.add(b); }
