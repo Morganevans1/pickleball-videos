@@ -1,0 +1,8 @@
+{
+  "name": "bounce-machine",
+  "private": true,
+  "description": "Bounce Pickleball Malvern - 'The Bounce Machine' :30, rendered in three.js",
+  "dependencies": {
+    "three": "0.170.0"
+  }
+}
