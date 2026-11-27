@@ -60,6 +60,8 @@
     smash:      { lean: 26, head: -6, fa: [56, 8], ba: [24, 46], fl: [30, 30], bl: [-26, 18], pad: -8, heelB: 1 },
     serveBack:  { lean: 10, head: -8, fa: [-40, 12], ba: [44, 34], fl: [20, 18], bl: [-16, 24], pad: 0 },
     serve:      { lean: 8, head: -10, fa: [96, 24], ba: [28, 40], fl: [26, 10], bl: [-30, 36], pad: -16, heelB: 1 },
+    serveHit:   { lean: 14, head: -12, fa: [34, 6], ba: [42, 30], fl: [24, 14], bl: [-24, 30], pad: 14 },
+    oops:       { lean: -2, head: -4, fa: [14, 26], ba: [150, 118], fl: [6, 6], bl: [-6, 8], pad: 20 },
     reach:      { lean: 42, head: -22, fa: [100, 6], ba: [-30, 40], fl: [58, 84], bl: [-34, 14], pad: 10 },
     celebrate:  { lean: -4, head: -20, fa: [166, 14], ba: [152, 22], fl: [10, 18], bl: [-8, 22], pad: -6 },
     nod:        { lean: 2, head: -6, fa: [130, 40], ba: [-4, 16], fl: [6, 6], bl: [-6, 8], pad: 0 },
