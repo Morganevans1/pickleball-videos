@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { buildWorld, W, L, COURTS, MEZ, DOOR, DESK, STAIR } from './world.js';
 import { makePerson, setPose, POSES, CAST, randomSpec } from './people.js';
 import * as T from './textures.js';
+import { setupAnim } from './anim.js';
 
 const MODE = (location.hash || '#cutaway').slice(1);
 const glc = document.getElementById('gl'), ov = document.getElementById('ov'), octx = ov.getContext('2d');
@@ -89,8 +90,8 @@ const VIEWS = {
 function applyMode(mode) {
   const ext = mode === 'exterior', plan = mode === 'plan';
   if (mode === 'close') mode = 'cutaway';
-  G.roof.visible = ext; G.nearFull.visible = ext; G.endFull.visible = ext;
-  G.nearCut.visible = !ext; G.endCut.visible = !ext;
+  G.roof.visible = ext; G.nearFull.visible = ext; G.endLFull.visible = ext; G.end0Full.visible = true;
+  G.nearCut.visible = !ext; G.endLCut.visible = !ext; G.end0Cut.visible = false;
   G.trusses.visible = false; G.fgTrees.visible = ext;
   G.ceiling.visible = mode === 'cutaway'; G.setCeiling(0.94);
   scene.background = plan ? new THREE.Color('#E9E7E2') : SKY;
@@ -119,15 +120,49 @@ function overlay(mode) {
   label('BOUNCE BANNER', [2, 1, L - 0.8], { size: 18, ls: 3, color: '#9FE3F7', stroke: 6 });
 }
 
-window.renderAt = () => { renderer.render(scene, cam); overlay(MODE); };
+let ANIM = null, LOGO = null;
+const ease = t => 1 - Math.pow(1 - t, 3), pr = (a, b, t) => Math.max(0, Math.min(1, (t - a) / (b - a)));
+function endCard(t) {
+  octx.clearRect(0, 0, 1920, 1080);
+  const a = ease(pr(26.9, 27.6, t)); if (a <= 0) return;
+  const g = octx.createLinearGradient(0, 0, 1050, 0);
+  g.addColorStop(0, `rgba(7,16,28,${0.94 * a})`); g.addColorStop(0.62, `rgba(7,16,28,${0.8 * a})`); g.addColorStop(1, 'rgba(7,16,28,0)');
+  octx.fillStyle = g; octx.fillRect(0, 0, 1050, 1080);
+  const x0 = 120, lw = 640, lh = lw * 575 / 1879, ly = 300;
+  octx.save(); octx.globalAlpha = a; octx.drawImage(LOGO, 42, 38, 1879, 575, x0 + (1 - a) * -30, ly, lw, lh); octx.restore();
+  const txt = (s, y, size, w, col, t0, ls = 0) => {
+    const k = ease(pr(t0, t0 + 0.6, t)); if (k <= 0) return;
+    octx.save(); octx.globalAlpha = k; octx.font = `${w} ${size}px Jost`; octx.textAlign = 'left'; octx.fillStyle = col; octx.letterSpacing = ls + 'px';
+    octx.fillText(s, x0 + 4 + (1 - k) * -24, y); octx.restore();
+  };
+  txt('Find your pickleball people.', ly + lh + 96, 58, 500, '#FFFFFF', 27.3);
+  octx.save(); octx.globalAlpha = ease(pr(27.6, 28.1, t)); octx.fillStyle = '#11ACDB'; octx.fillRect(x0 + 4, ly + lh + 150, 90, 4); octx.restore();
+  txt('bouncepb.com', ly + lh + 232, 46, 600, '#11ACDB', 27.65);
+  txt('MALVERN  \u00B7  PHILADELPHIA  \u00B7  BALTIMORE', ly + lh + 288, 24, 600, 'rgba(255,255,255,0.88)', 27.8, 6);
+}
+window.renderFrame = f => {
+  const t = f / ANIM.FPS;
+  ANIM.update(t, cam); renderer.render(scene, cam); endCard(t);
+};
+window.renderAt = t => {
+  if (ANIM) return window.renderFrame(Math.round(t * ANIM.FPS));
+  renderer.render(scene, cam); overlay(MODE);
+};
 window.ready = (async () => {
-  await Promise.all(['700 40px Jost', '600 40px Jost'].map(f => document.fonts.load(f)));
+  await Promise.all(['700 40px Jost', '600 40px Jost', '500 40px Jost'].map(f => document.fonts.load(f)));
   const A = {
     logo: await T.loadImage('assets/bounce-logo.png'), mark: await T.loadImage('assets/bounce-mark.png'),
     joola: await T.loadImage('assets/joola-white.png'),
   };
+  LOGO = A.logo;
   SKY = T.skyGradient();
   G = await buildWorld(scene, A);
+  if (MODE === 'anim') {
+    scene.background = SKY; G.trusses.visible = false;
+    ANIM = setupAnim(scene, G); window.CUES = ANIM.cues;
+    window.renderFrame(0);
+    return { people: ANIM.people.length, cues: ANIM.cues.length };
+  }
   populate();
   applyMode(MODE);
   renderer.render(scene, cam);

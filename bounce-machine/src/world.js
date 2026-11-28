@@ -67,7 +67,8 @@ function beam(a, b, thick, mat, parent) { // box from point a to point b
 export async function buildWorld(scene, A) {
   const G = {
     env: new THREE.Group(), shell: new THREE.Group(), nearFull: new THREE.Group(), nearCut: new THREE.Group(),
-    endFull: new THREE.Group(), endCut: new THREE.Group(), roof: new THREE.Group(), trusses: new THREE.Group(),
+    end0Full: new THREE.Group(), end0Cut: new THREE.Group(), endLFull: new THREE.Group(), endLCut: new THREE.Group(),
+    roof: new THREE.Group(), trusses: new THREE.Group(),
     interior: new THREE.Group(), fgTrees: new THREE.Group(),
   };
   Object.values(G).forEach(g => scene.add(g));
@@ -151,9 +152,24 @@ export async function buildWorld(scene, A) {
     bn.position.set(W / 2, 3.65, inner > 0 ? 0.33 : -0.03); if (inner < 0) bn.rotation.y = Math.PI; g.add(bn);
     g.position.z = z; return g;
   };
-  G.shell.add(endWall(-0.3, 1));            // behind courts 11-14
-  G.endFull.add(endWall(L, -1));            // behind courts 7/5/6/4 (identical banner)
-  box(W, 1.1, 0.3, [M.lining, M.lining, M.cut, M.lining, M.tan, M.lining], W / 2, 0.55, L + 0.15, G.endCut);
+  // both end walls carry the identical starfield banner; each has a full and a cutaway version
+  G.end0Full.add(endWall(-0.3, 1));           // z = 0, behind courts 4/6/5/7
+  G.endLFull.add(endWall(L, -1));             // z = L, behind courts 14/13/12/11
+  box(W, 1.1, 0.3, [M.lining, M.lining, M.cut, M.lining, M.tan, M.lining], W / 2, 0.55, L + 0.15, G.endLCut);
+  box(W, 1.1, 0.3, [M.lining, M.lining, M.cut, M.lining, M.lining, M.tan], W / 2, 0.55, -0.15, G.end0Cut);
+  { // where the logo (and the ball cut-out in its "B") sits on the z = L banner, in world space
+    const w = 4096, h = 560, lh = h * 0.44, lw = lh * 1879 / 575, X0 = w * 0.62 - lw / 2, Y0 = h * 0.25;
+    const toX = u => W / 2 - (u / w - 0.5) * (W - 1.0), toY = v => 3.65 + 4.4 * (0.5 - v / h);
+    G.holeL = { x: toX(X0 + (303 - 42) / 1879 * lw), y: toY(Y0 + (124 - 38) / 575 * lh), z: L - 0.04, r: 55 / 575 * lh / h * 4.4 };
+    G.logoL = { x: toX(X0 + lw / 2), y: toY(Y0 + lh / 2), w: lw / w * (W - 1.0), h: lh / h * 4.4 };
+    const lc = T.canvas(1879, 575); lc.getContext('2d').drawImage(A.logo, 42, 38, 1879, 575, 0, 0, 1879, 575);
+    const glow = new THREE.Mesh(new THREE.PlaneGeometry(G.logoL.w, G.logoL.h), new THREE.MeshBasicMaterial({ map: T.tex(lc), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
+    glow.position.set(G.logoL.x, G.logoL.y, L - 0.06); glow.rotation.y = Math.PI; G.endLFull.add(glow); G.logoGlow = glow;
+    G.rings = [0, 1, 2].map(() => {
+      const r = new THREE.Mesh(new THREE.RingGeometry(0.92, 1, 48), new THREE.MeshBasicMaterial({ color: '#9FE3F7', transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+      r.position.set(G.holeL.x, G.holeL.y, L - 0.07); r.rotation.y = Math.PI; G.endLFull.add(r); return r;
+    });
+  }
   for (const z of COLUMN_Z) {
     const zc = Math.min(Math.max(z, 0.4), L - 0.4), atDoor = zc > DOOR.z0 - 1 && zc < DOOR.z1 + 1;
     box(0.4, EAVE, 0.4, M.navy, 0.35, EAVE / 2, zc, G.shell);
@@ -191,9 +207,10 @@ export async function buildWorld(scene, A) {
   const ov = 0.6, ex = 0.5;
   const left = quad([[-ov, EAVE - 0.12, L + ex], [-ov, EAVE - 0.12, -ex], [W / 2, RIDGE, -ex], [W / 2, RIDGE, L + ex]], M.roof, [L / 1.2, 1]);
   const right = quad([[W + ov, EAVE - 0.12, -ex], [W + ov, EAVE - 0.12, L + ex], [W / 2, RIDGE, L + ex], [W / 2, RIDGE, -ex]], M.roof, [L / 1.2, 1]);
-  [left, right].forEach(m => { shade(m); G.roof.add(m); });
-  beam([-ov, EAVE - 0.18, -ex], [-ov, EAVE - 0.18, L + ex], 0.22, lam('#E6E6E2'), G.roof);
-  beam([W + ov, EAVE - 0.18, -ex], [W + ov, EAVE - 0.18, L + ex], 0.22, lam('#E6E6E2'), G.roof);
+  G.roofL = new THREE.Group(); G.roofR = new THREE.Group(); G.roof.add(G.roofL, G.roofR);
+  G.roofL.add(shade(left)); G.roofR.add(shade(right));
+  beam([-ov, EAVE - 0.18, -ex], [-ov, EAVE - 0.18, L + ex], 0.22, lam('#E6E6E2'), G.roofL);
+  beam([W + ov, EAVE - 0.18, -ex], [W + ov, EAVE - 0.18, L + ex], 0.22, lam('#E6E6E2'), G.roofR);
 
   // ------------------------------------------------------------ interior floor, courts, lines, nets
   const floor = shade(new THREE.Mesh(new THREE.PlaneGeometry(W, L), M.floor), false, true);
@@ -249,7 +266,15 @@ export async function buildWorld(scene, A) {
     mtx.compose(pos, q, scl); pMesh.setMatrixAt(i, mtx);
   });
   G.interior.add(pMesh);
-  G.panelCount = panels.length;
+  G.panelCount = panels.length; G.panels = panels;
+  const qy = new THREE.Quaternion(), qx = new THREE.Quaternion(), UP = new THREE.Vector3(0, 1, 0), AX = new THREE.Vector3(1, 0, 0);
+  G.tiltPanel = (i, a) => { // flex a barrier panel about its base (used as a pinball bumper)
+    const p = panels[i]; qy.setFromAxisAngle(UP, -p.ang); qx.setFromAxisAngle(AX, a);
+    const off = new THREE.Vector3(0, 0.375 * Math.cos(a), 0.375 * Math.sin(a)).applyQuaternion(qy);
+    pos.set(p.x, 0, p.z).add(off); scl.set(p.len, 1, 1); mtx.compose(pos, qy.clone().multiply(qx), scl);
+    pMesh.setMatrixAt(i, mtx); pMesh.instanceMatrix.needsUpdate = true;
+  };
+  G.nearestPanel = (x, z) => { let bi = 0, bd = 1e9; panels.forEach((p, i) => { const d = Math.hypot(p.x - x, p.z - z); if (d < bd) { bd = d; bi = i; } }); return bi; };
 
   // court number plaques (orange, like the real ones)
   for (const c of Object.values(COURTS)) {
@@ -338,6 +363,11 @@ export async function buildWorld(scene, A) {
   box(0.42, 0.3, 0.6, lam('#2B2E33'), -0.1, 1.27, -0.9, desk);                       // laptop
   const lamp = shade(new THREE.Mesh(new THREE.SphereGeometry(0.08, 12, 8), lam('#E23B2E', { emissive: '#7A1010' }))); lamp.position.set(-0.05, 1.2, -1.35); desk.add(lamp);
   box(0.14, 0.24, 0.14, lam('#F08A24'), 0.1, 1.24, -1.65, desk);                     // pumpkin-orange planter
+  const bell = new THREE.Group(); bell.position.set(0.12, 1.115, 0.75); desk.add(bell);
+  const bellBase = shade(new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.075, 0.02, 20), lam('#2A2A2A'))); bellBase.position.y = 0.01; bell.add(bellBase);
+  const dome = shade(new THREE.Mesh(new THREE.SphereGeometry(0.06, 20, 10, 0, Math.PI * 2, 0, Math.PI / 2), lam('#D8DCE0', { emissive: '#30343A' }))); dome.position.y = 0.02; bell.add(dome);
+  const knob = shade(new THREE.Mesh(new THREE.SphereGeometry(0.012, 8, 6), lam('#C8CCD0'))); knob.position.y = 0.085; bell.add(knob);
+  G.bell = bell; G.bellDome = dome;
   G.interior.add(desk); G.desk = desk;
   // the BOUNCE ball kiosk at the top of the stairs
   const kiosk = new THREE.Group(); kiosk.position.set(mz.x1 - 1.0, mz.y, S.zl1 + 1.0);
@@ -357,6 +387,11 @@ export async function buildWorld(scene, A) {
   lounge.add(sector(1.5, 1.78, 0.55, Math.PI * 2 - 0.55, 0.95, lam('#3D553A')));
   const tbl = shade(new THREE.Mesh(new THREE.CylinderGeometry(0.72, 0.72, 0.06, 32), M.white)); tbl.position.y = 0.58; lounge.add(tbl);
   box(0.12, 0.55, 0.12, M.white, 0, 0.28, 0, lounge);
+  G.cups = [];
+  for (let i = 0; i < 5; i++) {
+    const a = i / 5 * Math.PI * 2 + 0.3, c = shade(new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.036, 0.13, 12), lam('#D32F2F')));
+    c.position.set(Math.cos(a) * 0.38, 0.61 + 0.065, Math.sin(a) * 0.38); c.userData.base = c.position.clone(); lounge.add(c); G.cups.push(c);
+  }
   G.interior.add(lounge); G.lounge = lounge;
   // high-tops along the railings
   for (const x of [9, 13, 25]) for (const z of [mz.z0 + 0.75, mz.z1 - 0.75]) {
@@ -385,7 +420,13 @@ export async function buildWorld(scene, A) {
     }
     G.interior.add(g); if (key) G.hoppers[key] = g; return g;
   };
-  hopper(COURTS[3].cx + 2.6, COURTS[3].cz + 5.2, 'c3');
+  { // court 3's hopper sits just behind the baseline; it tips over onto the front row
+    const hp = hopper(COURTS[3].cx + 2.75, COURTS[3].cz - 7.9, 'c3', 40);
+    G.interior.remove(hp); const pivot = new THREE.Group(); pivot.position.set(hp.position.x, 0, hp.position.z - 0.26);
+    hp.position.set(0, 0, 0.26); pivot.add(hp); G.interior.add(pivot); G.hopperPivot = pivot;
+    G.hopperBalls = hp.children.filter(c => c.geometry && c.geometry.type === 'SphereGeometry');
+    G.hopperRim = new THREE.Vector3(pivot.position.x, 1.0, pivot.position.z + 0.26);
+  }
   hopper(COURTS[9].cx - 4.2, COURTS[9].cz - 6.4, 'c9', 20);
   hopper(COURTS[12].cx + 3.6, COURTS[12].cz + 7.4, 'c12', 20);
 

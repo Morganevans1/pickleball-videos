@@ -118,6 +118,13 @@ export const POSES = {
   walk:     { lean: 4, rSh: [-16, 6], rEl: 22, lSh: [18, 6], lEl: 22, rHip: 24, rKn: 12, lHip: -18, lKn: 26, pad: 0 },
   talk:     { lean: 0, rSh: [26, 10], rEl: 84, lSh: [6, 6], lEl: 12, rHip: 2, rKn: 4, lHip: -2, lKn: 4, pad: 0 },
   wave:     { lean: 0, rSh: [150, 30], rEl: 30, lSh: [6, 6], lEl: 12, rHip: 2, rKn: 4, lHip: -2, lKn: 4, pad: 0 },
+  sitCheer: { lean: -12, rSh: [152, 26], rEl: 18, lSh: [150, 26], lEl: 20, rHip: 90, rKn: 92, lHip: 88, lKn: 90, pad: 0 },
+  dodge:    { lean: -14, rSh: [118, 32], rEl: 96, lSh: [118, 32], lEl: 96, rHip: 30, rKn: 52, lHip: 8, lKn: 40, pad: 0 },
+  lift:     { lean: 12, rSh: [96, 10], rEl: 18, lSh: [22, 12], lEl: 40, rHip: 34, rKn: 46, lHip: -10, lKn: 30, pad: -62 },
+  lob:      { lean: 6, rSh: [120, 8], rEl: 10, lSh: [26, 12], lEl: 36, rHip: 26, rKn: 20, lHip: -24, lKn: 30, pad: -40 },
+  lobBack:  { lean: 22, rSh: [-30, 10], rEl: 20, lSh: [34, 10], lEl: 40, rHip: 36, rKn: 50, lHip: -10, lKn: 34, pad: 10 },
+  overheadBack: { lean: -14, rSh: [150, 16], rEl: 122, lSh: [140, -6], lEl: 10, rHip: 10, rKn: 14, lHip: -20, lKn: 26, pad: 10 },
+  smash:    { lean: 30, rSh: [56, 10], rEl: 8, lSh: [28, 12], lEl: 34, rHip: 22, rKn: 26, lHip: -26, lKn: 20, pad: -10 },
 };
 export function blendPose(a, b, t) {
   const o = {};
